@@ -492,8 +492,8 @@ type private RewriterImpl(options: Options.Options, optimizationPass: Optimizati
     // different dimensions i.e. float a[4], b[7];
     let rec squeezeTLDeclarations = function
         | [] -> []
-        | TLDecl(ty1, li1) :: TLDecl(ty2, li2) :: l when ty1 = ty2 && all_sizes_equal li1 li2 ->
-            squeezeTLDeclarations (TLDecl(ty1, li1 @ li2) :: l)
+        | TLDecl((ty1, li1), sn1) :: TLDecl((ty2, li2), sn2) :: l when ty1 = ty2 && all_sizes_equal li1 li2 ->
+            squeezeTLDeclarations (TLDecl((ty1, li1 @ li2), sn1) :: l)
         | e::l -> e :: squeezeTLDeclarations l
 
     let rwType (ty: Type) =
@@ -945,13 +945,13 @@ type private RewriterImpl(options: Options.Options, optimizationPass: Optimizati
 
     let cleanup tl =
         tl |> List.choose (function
-            | TLDecl (ty, li) ->
+            | TLDecl ((ty, li), sn) ->
                 let li = declsNotToInline li
-                if li = [] then None else TLDecl (rwType ty, li) |> Some
+                if li = [] then None else TLDecl ((rwType ty, li), sn) |> Some
             | TLVerbatim s -> TLVerbatim (stripSpaces s) |> Some
             | TLDirective (d, loc) -> TLDirective (stripDirectiveSpaces d, loc) |> Some
-            | Function (fct, _) when fct.fName.ToBeInlined -> None
-            | Function (fct, body) -> Function (rwFType fct, body) |> Some
+            | Function (fct, _, _) when fct.fName.ToBeInlined -> None
+            | Function (fct, body, section) -> Function (rwFType fct, body, section) |> Some
             | e -> e |> Some
         )
         |> squeezeTLDeclarations
@@ -1002,7 +1002,7 @@ let rec private iterateSimplifyAndInline (options: Options.Options) optimization
 
     // now that the functions were inlined, we can remove them
     let li = li |> List.filter (function
-        | Function (funcType, _) -> not funcType.fName.ToBeInlined || funcType.fName.Name.StartsWith("i_")
+        | Function (funcType, _, _) -> not funcType.fName.ToBeInlined || funcType.fName.Name.StartsWith("i_")
         | _ -> true)
     
     let li = if options.noInlining then li else ArgumentInlining(options).Apply didInline li
@@ -1030,7 +1030,7 @@ let processPragmas (options: Options.Options) li =
             forceInlineNextFunction |> Option.iter warnIgnoredPragma
             forceInlineNextFunction <- Some (false, [s], loc)
             None
-        | Function (ft, _) as tl ->
+        | Function (ft, _, _) as tl ->
             match forceInlineNextFunction with
             | Some (true, _, _) ->
                 options.trace $"{ft.fName.Loc}: pragma forces inlining of '{Printer.debugFunc ft}'"
@@ -1052,3 +1052,54 @@ let simplify (options: Options.Options) li =
     |> iterateSimplifyAndInline options OptimizationPass.First 1
     |> iterateSimplifyAndInline options OptimizationPass.Second 1
     |> RewriterImpl(options, OptimizationPass.First).Cleanup
+
+let combineCommon (options: Options.Options) shaders =
+    let normalize = fun toplevel ->
+        match toplevel with
+        | Ast.TLDirective (dir,_) -> Ast.TLDirective (dir,{line= -1; col= -1})
+        | tl -> tl
+    let topsets = shaders |> Array.map (fun shader -> Set.ofList (List.map normalize shader.code))
+    let shaders = shaders |> Array.mapi (fun i shader ->
+        let section = {name=shader.filename}
+        let code = shader.code |> List.map (fun toplevel ->
+            if Array.forall (fun set -> Set.contains (normalize toplevel) set) topsets then
+                if i = 0 then
+                    toplevel
+                else
+                    TLVerbatim ""
+            else
+                match toplevel with
+                | TLVerbatim str -> failwithf "non-common verbatim:\n%s" str
+                | TLDirective (str,_) -> failwithf "non-common directive:\n%s" (str |> String.concat " ")
+                | Function (ty,st,_) -> Function (ty,st,section)
+                | TLDecl (decl,_) -> TLDecl (decl,section)
+                | TypeDecl soib -> failwithf "non-common struct or interface block %s" (soib.name |> Option.defaultValue (Ident(""))).OldName
+                | Precision _ -> failwithf "non-common precision declaration"
+        )
+        { shader with code = code }
+    )
+    {
+        Ast.Shader.filename = "combined"
+        code = shaders |> Array.map (fun shader -> shader.code) |> List.concat
+        forbiddenNames = shaders |> Array.map (fun shader -> shader.forbiddenNames) |> List.concat
+        reorderFunctions = true
+    }
+
+let separateSections shader =
+    let code = shader.code |> List.filter (fun toplevel ->
+        match toplevel with
+        | TLVerbatim "" -> false
+        | _ -> true
+    )
+    let sections = code |> List.groupBy (fun toplevel ->
+        match toplevel with
+        | Function (ty,st,section) -> section.name
+        | TLDecl (decl,section) -> section.name
+        | _ -> ""
+    )
+    let sections = sections |> List.sortBy (fun (name,_) -> name)
+    let sections = sections |> Array.ofList
+    sections |> Array.map (fun (name,code) ->
+        let name = if name = "" then "common" else name
+        { shader with filename = name; code = code }
+    )

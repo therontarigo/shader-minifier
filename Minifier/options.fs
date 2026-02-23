@@ -44,6 +44,7 @@ type CliArguments =
     | [<CustomCommandLine("--preprocess")>] Preprocess
     | [<CustomCommandLine("--export-kkp-symbol-maps")>] ExportKkpSymbolMaps
     | [<CustomCommandLine("--export-indented-text")>] ExportIndentedText
+    | [<CustomCommandLine("--common-source")>] CommonSource
     | [<MainCommand>] Filenames of filename:string list
  
     interface IArgParserTemplate with
@@ -68,6 +69,7 @@ type CliArguments =
             | Preprocess -> "Evaluate some of the file preprocessor directives"
             | ExportKkpSymbolMaps -> "Export kkpView symbol maps"
             | ExportIndentedText -> "Export indented shader text"
+            | CommonSource -> "Move common declarations to a shared source string"
             | Filenames _ -> "List of files to minify"
             | Version -> "Display the version and exit"
 
@@ -93,6 +95,7 @@ type Options = {
     preprocess: bool
     exportKkpSymbolMaps: bool
     exportIndentedText: bool
+    commonSource: bool
 }
 with
     member this.renameField field =
@@ -138,6 +141,7 @@ let private initPrivate argv =
         outputNameIndentedText =
             let shaderext = if hlsl then ".hlsl" else ".glsl"
             outputName + shaderext
+        commonSource = args.Contains(CommonSource)
         noRenamingList =
             let opt = args.GetResult(NoRenamingList, defaultValue = "main,mainImage")
             [for i in opt.Split([|','|]) -> i.Trim()]

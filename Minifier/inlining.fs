@@ -157,7 +157,7 @@ type VariableInlining(options: Options.Options) =
         // Visit globals
         for tl in li do
             match tl with
-            | TLDecl d -> markUnwrittenVariablesWithSimpleInit Level.TopLevel d; ()
+            | TLDecl (d, _) -> markUnwrittenVariablesWithSimpleInit Level.TopLevel d; ()
             | _ -> ()
         ()
     
@@ -334,7 +334,7 @@ type ArgumentInlining(options: Options.Options) =
             | x -> x
 
         let applyTopLevel = function
-            | Function(fct, body) as f ->
+            | Function(fct, body, section) as f ->
                 // Handle argument inlining for other functions called by f.
                 let _, body = options.visitor(applyExpr).mapStmt (BlockLevel.FunctionRoot fct) body
                 // Handle argument inlining for f. Remove the parameter from the declaration.
@@ -352,7 +352,7 @@ type ArgumentInlining(options: Options.Options) =
                     |> List.map (fun inl -> Decl (
                         {inl.varDecl.ty with typeQ = inl.varDecl.ty.typeQ |> List.filter ((=) "const")},
                         [{inl.varDecl.decl with init = Some inl.argExpr}]))
-                Function(fct, Block (decls @ body.asStmtList))
+                Function(fct, Block (decls @ body.asStmtList), section)
             | tl -> tl
 
         if argInlinings.IsEmpty then

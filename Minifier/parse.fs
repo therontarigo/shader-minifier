@@ -174,7 +174,7 @@ type private ParseImpl(options: Options.Options) =
                     failwithf "Record field name '%s' is not allowed by Shader Minifier,\nbecause it looks like a vec4 field name." decl.name.Name
             arg
         let structMember =
-            attempt (pfunction |>> (function Ast.Function (ft,body) -> Ast.Method(ft, body) | _ -> failwith "unexpected"))
+            attempt (pfunction |>> (function Ast.Function (ft,body,_) -> Ast.Method(ft, body) | _ -> failwith "unexpected"))
             <|> (declaration .>> ch ';' |>> check |>> Ast.MemberVariable)
         let members = many structMember
         
@@ -366,7 +366,7 @@ type private ParseImpl(options: Options.Options) =
         pipe4 specifiedType ident argList semantics Ast.makeFunctionType
 
     do pfunctionRef.Value <-
-        pipe2 functionHeader block (fun head body -> Ast.Function(head, body))
+        pipe2 functionHeader block (fun head body -> Ast.Function(head, body, {name=""}))
 
     let precision =
          keyword "precision" >>. (specifiedType |>> Ast.Precision) .>> ch ';'
@@ -381,7 +381,7 @@ type private ParseImpl(options: Options.Options) =
                     template |>> Ast.TLVerbatim
                     verbatim |>> Ast.TLVerbatim
                     attribute |>> Ast.TLVerbatim
-                    attempt decl |>> Ast.TLDecl
+                    attempt decl |>> (fun decl -> Ast.TLDecl (decl, {name=""}))
                     structDecl
                     attempt interfaceBlock
                     attempt loneLayoutQualifier |>> Ast.TLVerbatim

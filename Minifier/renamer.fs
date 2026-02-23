@@ -288,8 +288,8 @@ type private RenamerVisitor(options: Options.Options) =
                 newEnv
 
     member _.RenTopLevelName env = function
-        | TLDecl d -> renDecl TopLevelDeclaration None env d
-        | Function(fct, _) -> renFunction env fct
+        | TLDecl (d, _) -> renDecl TopLevelDeclaration None env d
+        | Function(fct, _, _) -> renFunction env fct
         | TypeDecl ({ blockType = InterfaceBlock _ } as interfaceBlock) ->
             // interface block without an instance name: the members are treated as external global variables
             // e.g. `uniform foo { int a; float b; }`
@@ -304,7 +304,7 @@ type private RenamerVisitor(options: Options.Options) =
         | _ -> env
 
     member _.RenTopLevelBody env = function
-        | Function(fct, body) ->
+        | Function(fct, body, _) ->
             // Use the top level env to rename the return type.
             let env = renType env fct.retType
             // In the function body, we use an env that allows shadowing unused outer decls.

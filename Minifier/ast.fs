@@ -8,6 +8,8 @@ type VarScope = Global | Local | Parameter
 [<StructuredFormatDisplay("{line}:{col}")>]
 type Location = { line: int; col: int }
 
+type Section = { name: string }
+
 type Access = { // a Var in the AST can be a read, a write, both, or neither.
     isRead: bool
     isWrite: bool // A declaration's assignment is not counted as a write.
@@ -215,8 +217,8 @@ and FunctionType = {
 and TopLevel =
     | TLVerbatim of string
     | TLDirective of string list * Location
-    | Function of FunctionType * Stmt
-    | TLDecl of Decl
+    | Function of FunctionType * Stmt * Section
+    | TLDecl of Decl * Section
     | TypeDecl of StructOrInterfaceBlock // named struct, or interface block that introduce a set of external global variables.
     | Precision of Type
 
@@ -350,10 +352,10 @@ type MapEnv private = {
     member env.mapTopLevel li =
         let _, res = li |> env.foldList (fun env tl ->
             match tl with
-            | TLDecl t ->
+            | TLDecl (t, section) ->
                 let env, res = env.mapDecl t
-                env, TLDecl res
-            | Function(fct, body) ->
+                env, TLDecl (res, section)
+            | Function(fct, body, section) ->
                 // Back up the vars without the parameters.
                 let varsWithoutParameters = env.vars
                 // Add the function to env.fns, to have it when transforming the parameters.
@@ -371,7 +373,7 @@ type MapEnv private = {
 
                 // Remove the parameters from env.vars, so that following functions don't see them.
                 let env = {env with vars = varsWithoutParameters}
-                env, Function(fct, body)
+                env, Function(fct, body, section)
             | e -> env, e)
         res
 

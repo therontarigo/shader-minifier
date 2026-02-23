@@ -19,6 +19,9 @@ type Minifier(options, files) =
         options.trace $"----- minifying {names}"
         vprintf "Input file size is: %d\n" (files |> Array.sumBy (fun (_, s) -> s.Length))
 
+        let parse (filename, content) =
+            Parse.runParser options filename content
+
         let parseAndRewrite (filename, content) =
             let shader = Parse.runParser options filename content
             let code =
@@ -27,7 +30,15 @@ type Minifier(options, files) =
                 else shader.code
             { shader with code = Rewriter.simplify options code }
 
-        let shaders = Array.Parallel.map parseAndRewrite files
+        let shaders =
+            if options.commonSource then
+                let shaders = Array.Parallel.map parse files
+                let shader = Rewriter.combineCommon options shaders
+                let code = Rewriter.reorderFunctions options shader.code
+                let code = Rewriter.simplify options code
+                Rewriter.separateSections {shader with code = code}
+            else
+                Array.Parallel.map parseAndRewrite files
         vprintf "Rewrite tricks applied. "; printSize shaders
 
         if options.noRenaming then

@@ -311,9 +311,9 @@ type PrinterImpl(withLocations) =
             let trailing = if s.Length > 0 && isIdentChar s[s.Length - 1] then " " else ""
             out "%s%s" s trailing
         | TLDirective (d, _) -> directiveToS d
-        | Function (fct, body) -> funDeclToS 0 fct body
+        | Function (fct, body, _) -> funDeclToS 0 fct body
         | Precision ty -> out "precision %s;" (typeToS 0 ty);
-        | TLDecl decl -> out "%s;" (declToS 0 decl)
+        | TLDecl (decl, _) -> out "%s;" (declToS 0 decl)
         | TypeDecl b -> out "%s;" (blockToS 0 b)
 
     let printIndented tl = 
@@ -338,8 +338,8 @@ type PrinterImpl(withLocations) =
         for (tl, tlString) in List.zip shader.code tlStrings do
             let symbolName =
                 match tl with
-                | Function (fct, _) -> fct.fName.OldName
-                | TLDecl (_, declElts) -> declElts |> List.map (fun declElt -> declElt.name.OldName) |> String.concat ","
+                | Function (fct, _, _) -> fct.fName.OldName
+                | TLDecl ((_, declElts), _) -> declElts |> List.map (fun declElt -> declElt.name.OldName) |> String.concat ","
                 | TypeDecl { name = Some n } -> n.OldName
                 | TypeDecl _ -> "*type decl*" // struct or unnamed interface block
                 | Precision _ -> "*precision*"

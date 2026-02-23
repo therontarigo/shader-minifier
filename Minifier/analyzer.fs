@@ -145,8 +145,8 @@ type VarVisitor(onVarUse: VarUse -> Ident -> VarDecl -> unit) =
         )
 
     member this.visitTopLevels = List.iter (function
-        | TLDecl t -> this.visitDecl t
-        | Function(fct, body) ->
+        | TLDecl (t, _) -> this.visitDecl t
+        | Function(fct, body, _) ->
             List.iter this.visitDecl fct.args
             this.visitStmt body
         | _ -> ())
@@ -218,7 +218,7 @@ type Analyzer(options: Options.Options) =
             options.visitor(collect).iterStmt BlockLevel.Unknown block
             callSites |> Seq.toList
         let functions = code |> List.choose (function
-            | Function(funcType, block) as f -> Some (funcType, funcType.fName.Name, block, f)
+            | Function(funcType, block, _) as f -> Some (funcType, funcType.fName.Name, block, f)
             | _ -> None)
         let funcInfos = functions |> List.map (fun ((funcType, name, block, func) as f) ->
             let callSites = findCallSites block
@@ -280,7 +280,7 @@ type Analyzer(options: Options.Options) =
 
         for tl in topLevel do
             match tl with
-            | Function (ft, _) ->
+            | Function (ft, _, _) ->
                 match ft.fName.Declaration with
                 | Declaration.UserFunction f ->
                     f.hasExternallyVisibleSideEffects <- findExternallyVisibleSideEffect tl
@@ -316,8 +316,8 @@ type Analyzer(options: Options.Options) =
             | x -> x
 
         let resolveGlobalsAndParameters = function
-            | TLDecl decl -> resolveDecl VarScope.Global decl
-            | Function (funcType, _) as tl ->
+            | TLDecl (decl, _) -> resolveDecl VarScope.Global decl
+            | Function (funcType, _, _) as tl ->
                 for decl in funcType.args do resolveDecl VarScope.Parameter decl
                 funcType.fName.Declaration <- Declaration.UserFunction (FunDecl(tl, funcType))
             | _ -> ()
