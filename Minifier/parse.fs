@@ -192,7 +192,7 @@ type private ParseImpl(options: Options.Options) =
 
     let structDecl =
         let semi = if options.hlsl then opt (ch ';') |>> ignore<unit option> else ch ';'
-        (structSpecifier .>> semi) |>> Ast.TypeDecl
+        (structSpecifier .>> semi) |>> (fun b -> Ast.TypeDecl(b,{name=""}))
 
     // eg. "const out int", "uniform float", "int[2][3]"
     let glslStorage = ["const"; "inout"; "in"; "out"; "centroid"
@@ -266,7 +266,7 @@ type private ParseImpl(options: Options.Options) =
         let! sem = semantics
         let s = sem |> List.map (fun s -> ":" + Printer.exprToS s) |> String.concat ""
         let! ret = blockSpecifier (Printer.typeToS ty + s)
-                      |>> Ast.TypeDecl
+                      |>> (fun b -> Ast.TypeDecl(b,{name=""}))
         // semicolon seems to be optional in hlsl
         do! if options.hlsl then opt (ch ';') |>> ignore<unit option> else ch ';'
         return ret

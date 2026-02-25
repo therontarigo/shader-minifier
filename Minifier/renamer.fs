@@ -290,15 +290,15 @@ type private RenamerVisitor(options: Options.Options) =
     member _.RenTopLevelName env = function
         | TLDecl (d, _) -> renDecl TopLevelDeclaration None env d
         | Function(fct, _, _) -> renFunction env fct
-        | TypeDecl ({ blockType = InterfaceBlock _ } as interfaceBlock) ->
+        | TypeDecl ({ blockType = InterfaceBlock _ } as interfaceBlock, _) ->
             // interface block without an instance name: the members are treated as external global variables
             // e.g. `uniform foo { int a; float b; }`
             renList env (renStructMember interfaceBlock false) interfaceBlock.members
-        | TypeDecl ({ blockType = Struct; name = Some structName } as namedStruct) ->
+        | TypeDecl ({ blockType = Struct; name = Some structName } as namedStruct, _) ->
             let env = renNamedStruct env structName
             let env = renList env (renStructMember namedStruct false) namedStruct.members
             env
-        | TypeDecl { blockType = Struct; name = None } -> // e.g. `struct {int A;};`
+        | TypeDecl ({ blockType = Struct; name = None }, _) -> // e.g. `struct {int A;};`
             // TIL Declaring an anonymous struct that doesn't declare a variable is legal and does nothing.
             env
         | _ -> env

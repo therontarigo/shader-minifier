@@ -988,7 +988,7 @@ let reorderFunctions (options: Options.Options) code =
 let rec private iterateSimplifyAndInline (options: Options.Options) optimizationPass passCount li =
     let li = if not options.noRemoveUnused then RewriterImpl.RemoveUnusedFunctions options li else li
     let li = li |> List.filter (function
-        | TypeDecl { blockType = Struct; name = None } -> false // e.g. `struct {int A;};`
+        | TypeDecl ({ blockType = Struct; name = None }, _) -> false // e.g. `struct {int A;};`
         | _ -> true)
     Analyzer(options).resolve li
     Analyzer(options).markWrites li
@@ -1073,7 +1073,7 @@ let combineCommon (options: Options.Options) shaders =
                 | TLDirective (str,_) -> failwithf "non-common directive:\n%s" (str |> String.concat " ")
                 | Function (ty,st,_) -> Function (ty,st,section)
                 | TLDecl (decl,_) -> TLDecl (decl,section)
-                | TypeDecl soib -> failwithf "non-common struct or interface block %s" (soib.name |> Option.defaultValue (Ident(""))).OldName
+                | TypeDecl (b,_) -> TypeDecl (b,section)
                 | Precision _ -> failwithf "non-common precision declaration"
         )
         { shader with code = code }
@@ -1095,6 +1095,7 @@ let separateSections shader =
         match toplevel with
         | Function (ty,st,section) -> section.name
         | TLDecl (decl,section) -> section.name
+        | TypeDecl (decl,section) -> section.name
         | _ -> ""
     )
     let sections = sections |> List.sortBy (fun (name,_) -> name)

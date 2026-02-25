@@ -314,7 +314,7 @@ type PrinterImpl(withLocations) =
         | Function (fct, body, _) -> funDeclToS 0 fct body
         | Precision ty -> out "precision %s;" (typeToS 0 ty);
         | TLDecl (decl, _) -> out "%s;" (declToS 0 decl)
-        | TypeDecl b -> out "%s;" (blockToS 0 b)
+        | TypeDecl (b, _) -> out "%s;" (blockToS 0 b)
 
     let printIndented tl = 
         let mutable wasMacro = true
@@ -340,7 +340,7 @@ type PrinterImpl(withLocations) =
                 match tl with
                 | Function (fct, _, _) -> fct.fName.OldName
                 | TLDecl ((_, declElts), _) -> declElts |> List.map (fun declElt -> declElt.name.OldName) |> String.concat ","
-                | TypeDecl { name = Some n } -> n.OldName
+                | TypeDecl ({ name = Some n }, _) -> n.OldName
                 | TypeDecl _ -> "*type decl*" // struct or unnamed interface block
                 | Precision _ -> "*precision*"
                 | TLDirective ("#define"::_, _) -> "#define"

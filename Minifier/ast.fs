@@ -219,7 +219,7 @@ and TopLevel =
     | TLDirective of string list * Location
     | Function of FunctionType * Stmt * Section
     | TLDecl of Decl * Section
-    | TypeDecl of StructOrInterfaceBlock // named struct, or interface block that introduce a set of external global variables.
+    | TypeDecl of StructOrInterfaceBlock * Section // named struct, or interface block that introduce a set of external global variables.
     | Precision of Type
 
 let makeType name tyQ sizes = {Type.name=name; typeQ=tyQ; arraySizes=sizes}
