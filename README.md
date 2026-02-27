@@ -99,7 +99,7 @@ $ mono shader_minifier.exe  # Linux, Mac...
 ```
 USAGE: Shader Minifier [--help] [--version] [-o <string>] [-v] [--debug]
                        [--hlsl]
-                       [--format <text|indented|c-variables|c-array|js|nasm|rust|json>]
+                       [--format <text|indented|c-variables|c-array|c-macros|js|nasm|nasm-macros|rust|json>]
                        [--field-names <rgba|xyzw|stpq>] [--preserve-externals]
                        [--preserve-all-globals] [--no-inlining]
                        [--aggressive-inlining] [--no-renaming]
@@ -120,7 +120,7 @@ OPTIONS:
     -v                    Verbose, display additional information
     --debug               Debug, display more additional information
     --hlsl                Use HLSL (default is GLSL)
-    --format <text|indented|c-variables|c-array|js|nasm|rust|json>
+    --format <text|indented|c-variables|c-array|c-macros|js|nasm|nasm-macros|rust|json>
                           Choose to format the output (use 'text' if you want
                           just the shader)
     --field-names <rgba|xyzw|stpq>
@@ -197,9 +197,24 @@ const char* shaderSources[] = {
 };
 ```
 
+If you need more control over how the strings are embedded in your code, use:
+
+```
+shader_minifier.exe --format c-macros *.frag -o shaders.h
+```
+
+In your C or C++ code, use the generated macros in place of string literals:
+
+```c
+#include "shaders.h"
+
+static char shader_render[] = SHADER_STRING_render_frag; // render.frag
+static char shader_post[] = SHADER_STRING_post_frag; // post.frag
+```
+
 Note that uniforms will be renamed consistently across all the files. The
-`#define` lines will tell you how they were renamed. To disable this renaming,
-use `--preserve-externals`.
+`#define SHADER_VAR_<name>` lines will tell you how they were renamed. To
+disable this renaming, use `--preserve-externals`.
 
 ### Javascript
 
@@ -235,6 +250,23 @@ validated using:
 ```
 glslang -DINCLUDE_vertex_glsl shader_code.h.glsl <options>...
 ```
+
+The `c-macros` format contains line number information that may be enabled by
+redefining a macro before referencing the `SHADER_STRING_<name>` macros:
+
+```c
+#include "shaders.h"
+
+#undef SHADER_MINIFIER_LINE
+#define SHADER_MINIFIER_LINE(s) s
+
+static char shader_render[] = SHADER_STRING_render_frag;
+static char shader_post[] = SHADER_STRING_post_frag;
+```
+
+The strings will contain line separations and `#line` directives.  If the
+graphics API shader compiler encounters an error, the line numbers in the info
+log should correspond directly to lines of `shaders.h`.
 
 ## Concepts
 
